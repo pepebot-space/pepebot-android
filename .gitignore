@@ -1,0 +1,24 @@
+# Pepebot Android Project
+
+# Pepebot Go binaries (will be built by build script)
+pepebot/
+pepebot/pepebot-*
+
+# Android build outputs
+termux-app/build/
+termux-app/app/build/
+termux-app/.gradle/
+termux-app/local.properties
+termux-app/*.apk
+
+# Assets (binaries copied by build script)
+termux-app/app/src/main/assets/pepebot-*
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
