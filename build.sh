@@ -58,14 +58,14 @@ if [ ! -d "cmd/pepebot" ]; then
     exit 1
 fi
 
-echo "  Building for arm64..."
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o pepebot-arm64 ./cmd/pepebot
+echo "  Building for arm64 (Real devices - Android GOOS)..."
+GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -o pepebot-arm64 ./cmd/pepebot
 
-echo "  Building for armv7..."
-GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -o pepebot-armv7 ./cmd/pepebot
-
-echo "  Building for x86_64..."
+echo "  Building for x86_64 (Emulators - Linux GOOS)..."
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o pepebot-x86_64 ./cmd/pepebot
+
+echo ""
+echo "  Note: armv7 skipped (requires CGO). 99% of devices are arm64."
 
 echo -e "${GREEN}✓ Pepebot binaries built successfully${NC}"
 echo ""
@@ -74,8 +74,16 @@ echo ""
 echo "📦 Step 2: Copying binaries to assets..."
 mkdir -p "$ASSETS_DIR"
 cp pepebot-arm64 "$ASSETS_DIR/"
-cp pepebot-armv7 "$ASSETS_DIR/"
+# armv7 skipped - not needed for modern devices
 cp pepebot-x86_64 "$ASSETS_DIR/"
+
+# Create a dummy armv7 binary that shows error message
+cat > "$ASSETS_DIR/pepebot-armv7" << 'EOF'
+#!/bin/sh
+echo "ERROR: armv7 not supported. Please use arm64 device."
+exit 1
+EOF
+chmod +x "$ASSETS_DIR/pepebot-armv7"
 
 echo "  Binaries copied:"
 ls -lh "$ASSETS_DIR"/pepebot-* | awk '{print "    " $9 " (" $5 ")"}'
