@@ -624,6 +624,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         // Start Server button
         findViewById(R.id.pepebot_start_button).setOnClickListener(v -> {
+            injectCommandToTerminal("termux-chroot\n");
             injectCommandToTerminal("pepebot gateway\n");
             showToast("Starting pepebot server...", false);
 
@@ -712,7 +713,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 injectCommandToTerminal("echo ''\n");
 
                 // Run setup commands
-                injectCommandToTerminal("apt update -y && apt upgrade -y && apt install proot -y\n");
+                injectCommandToTerminal("apt -y update && apt -y upgrade && pkg install -y proot termux-api\n");
 
                 // Mark setup as completed after commands finish
                 mTerminalView.postDelayed(() -> {
