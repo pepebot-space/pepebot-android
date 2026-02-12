@@ -712,7 +712,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 injectCommandToTerminal("echo ''\n");
 
                 // Run setup commands
-                injectCommandToTerminal("apt update -y && apt upgrade -y && apt install proot -y\n");
+                injectCommandToTerminal("apt update -y && apt upgrade -y && pkg install -y proot termux-api\n");
 
                 // Mark setup as completed after commands finish
                 mTerminalView.postDelayed(() -> {
