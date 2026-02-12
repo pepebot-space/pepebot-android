@@ -118,7 +118,7 @@ if [ $? -eq 0 ]; then
     echo "📍 APKs location: $TERMUX_APP_DIR/app/build/outputs/apk/debug/"
     echo ""
     echo "To install on device:"
-    echo "  adb install -r app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk"
+    echo "  adb install -r $TERMUX_APP_DIR/app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk"
 else
     echo -e "${RED}❌ Build failed${NC}"
     exit 1

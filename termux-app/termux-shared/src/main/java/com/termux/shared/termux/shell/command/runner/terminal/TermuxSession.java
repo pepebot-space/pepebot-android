@@ -13,6 +13,7 @@ import com.termux.shared.shell.command.environment.ShellEnvironmentUtils;
 import com.termux.shared.shell.command.environment.UnixShellEnvironment;
 import com.termux.shared.shell.command.result.ResultData;
 import com.termux.shared.errors.Errno;
+import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.shell.command.environment.IShellEnvironment;
 import com.termux.shared.shell.ShellUtils;
@@ -94,6 +95,12 @@ public class TermuxSession {
         if (executionCommand.executable == null) {
             if (!executionCommand.isFailsafe) {
                 for (String shellBinary : UnixShellEnvironment.LOGIN_SHELL_BINARIES) {
+                    // Skip "login" script for rebranded packages as it depends on bash which needs LD_LIBRARY_PATH
+                    // The login script has shebang that references bash, but bash binary can't load libraries
+                    // at kernel exec time before LD_LIBRARY_PATH is set
+                    if ("login".equals(shellBinary) && !TermuxConstants.TERMUX_PACKAGE_NAME.equals("com.termux")) {
+                        continue;
+                    }
                     File shellFile = new File(defaultBinPath, shellBinary);
                     if (shellFile.canExecute()) {
                         executionCommand.executable = shellFile.getAbsolutePath();
