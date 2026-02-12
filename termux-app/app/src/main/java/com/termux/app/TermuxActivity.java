@@ -412,14 +412,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                         }
                         mTermuxTerminalSessionActivityClient.addNewSession(launchFailsafe, null);
 
-                        // Inject welcome message
+                        // Run initial setup if needed
+                        mTerminalView.postDelayed(() -> {
+                            runInitialSetupIfNeeded();
+                        }, 1500);
+
+                        // Inject welcome message (after setup)
                         mTerminalView.postDelayed(() -> {
                             injectCommandToTerminal("clear\n");
                             injectCommandToTerminal("echo '🐸 Welcome to Pepebot!'\n");
                             injectCommandToTerminal("echo 'Tap Configure to set up your API keys'\n");
                             injectCommandToTerminal("echo 'Tap Start Server to launch the gateway'\n");
                             injectCommandToTerminal("echo ''\n");
-                        }, 500);
+                        }, 2500);
                     } catch (WindowManager.BadTokenException e) {
                         // Activity finished - ignore.
                     }
@@ -687,6 +692,49 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         currentSession.write(commandBytes, 0, commandBytes.length);
 
         Logger.logDebug(LOG_TAG, "Injected command: " + command.trim());
+    }
+
+    /**
+     * Run initial setup commands on first run.
+     */
+    private void runInitialSetupIfNeeded() {
+        // Check if initial setup has been completed
+        android.content.SharedPreferences prefs = getSharedPreferences("pepebot_prefs", MODE_PRIVATE);
+        boolean setupCompleted = prefs.getBoolean("initial_setup_completed", false);
+
+        if (!setupCompleted) {
+            Logger.logInfo(LOG_TAG, "Running initial setup...");
+
+            mTerminalView.postDelayed(() -> {
+                // Show setup message
+                injectCommandToTerminal("echo '🔧 Running initial setup...'\n");
+                injectCommandToTerminal("echo 'This may take a few minutes on first run.'\n");
+                injectCommandToTerminal("echo ''\n");
+
+                // Run setup commands
+                injectCommandToTerminal("apt update -y && apt upgrade -y && apt install proot -y\n");
+
+                // Mark setup as completed after commands finish
+                mTerminalView.postDelayed(() -> {
+                    injectCommandToTerminal("echo ''\n");
+                    injectCommandToTerminal("echo '✅ Initial setup completed!'\n");
+                    injectCommandToTerminal("echo ''\n");
+
+                    // Save setup completion status
+                    prefs.edit().putBoolean("initial_setup_completed", true).apply();
+                    Logger.logInfo(LOG_TAG, "Initial setup marked as completed");
+
+                    // Enter chroot
+                    injectCommandToTerminal("termux-chroot\n");
+                }, 2000); // Wait 2 seconds before marking complete
+            }, 1000);
+        } else {
+            Logger.logDebug(LOG_TAG, "Initial setup already completed, skipping");
+            // Auto-enter chroot on subsequent runs
+            mTerminalView.postDelayed(() -> {
+                injectCommandToTerminal("termux-chroot\n");
+            }, 500);
+        }
     }
 
 
