@@ -4,6 +4,9 @@
 pepebot/
 pepebot/pepebot-*
 
+# Termux packages (cloned by build-termux-packages.sh)
+termux-packages/
+
 # Android build outputs
 termux-app/build/
 termux-app/app/build/

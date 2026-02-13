@@ -6,14 +6,15 @@ Pepebot Android app - A standalone terminal app with integrated Pepebot server c
 
 ```
 pepebot-android/
-├── build.sh              # Build script (clones pepebot + builds binaries + APK)
-├── install.sh            # Install script for device
-├── .gitignore            # Ignores pepebot/ directory and binaries
-├── README.md             # This file
-├── logo.png              # App icon source
-├── pepebot/              # ⚠️ NOT tracked by git (auto-cloned by build.sh)
-│   └── cmd/pepebot/      # Pepebot Go source code
-└── termux-app/           # Modified Termux app (standalone)
+├── build.sh                  # Build script (clones pepebot + builds binaries + APK)
+├── build-termux-packages.sh  # Build custom Termux bootstrap packages via Docker
+├── install.sh                # Install script for device
+├── .gitignore                # Ignores pepebot/ directory and binaries
+├── README.md                 # This file
+├── logo.png                  # App icon source
+├── pepebot/                  # ⚠️ NOT tracked by git (auto-cloned by build.sh)
+│   └── cmd/pepebot/          # Pepebot Go source code
+└── termux-app/               # Modified Termux app (standalone)
     ├── .gitignore        # Ignores pepebot binaries in assets
     ├── app/
     │   └── src/main/
@@ -42,6 +43,30 @@ pepebot-android/
 - Java 17+
 - Gradle (wrapper included)
 - Git
+
+### Building Custom Termux Packages (Bootstrap)
+
+If you need to rebuild the Termux bootstrap packages with the custom package ID (`com.pepebot.terminal`), use the provided script:
+
+```bash
+# Requires: Docker (running)
+
+# Build all architectures (aarch64, arm, i686, x86_64)
+./build-termux-packages.sh
+
+# Build specific architecture only (faster)
+ARCHITECTURES=aarch64 ./build-termux-packages.sh
+
+# Include extra packages in bootstrap
+ADDITIONAL_PACKAGES=vim,git,openssh ./build-termux-packages.sh
+
+# Force rebuild all packages
+FORCE_BUILD=1 ./build-termux-packages.sh
+```
+
+This script clones `termux-packages`, patches `TERMUX_APP__PACKAGE_NAME` to `com.pepebot.terminal`, builds packages inside Docker, and copies the resulting `bootstrap-*.zip` files to `termux-app/app/src/main/cpp/`.
+
+> **Note**: Building takes 30+ minutes per architecture. Docker needs at least 4GB memory.
 
 ### Quick Start
 
