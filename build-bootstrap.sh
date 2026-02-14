@@ -137,8 +137,7 @@ if [ ! -f "$PROPERTIES_FILE.orig" ]; then
     cp "$PROPERTIES_FILE" "$PROPERTIES_FILE.orig"
 fi
 
-# Patch: replace com.termux with custom package name in the variable assignment
-# Handle both TERMUX_APP__PACKAGE_NAME (new) and TERMUX_APP_PACKAGE (old)
+# Patch: replace com.termux with custom package name
 sed -i.bak \
     -e 's|TERMUX_APP__PACKAGE_NAME="com\.termux"|TERMUX_APP__PACKAGE_NAME="'"$CUSTOM_PACKAGE_NAME"'"|g' \
     "$PROPERTIES_FILE"
@@ -153,10 +152,154 @@ else
     exit 1
 fi
 
-# Show derived paths for verification
 echo "  Derived paths:"
 echo "    Data dir: /data/data/${CUSTOM_PACKAGE_NAME}"
 echo "    Prefix:   /data/data/${CUSTOM_PACKAGE_NAME}/files/usr"
+echo ""
+
+# ─── Step 3b: Write bootstrap assembler script ───────────────────────
+# Write as a separate file to avoid nested quoting issues with docker exec
+cat > "$TERMUX_PACKAGES_DIR/scripts/assemble-bootstrap.sh" << 'ASSEMBLE_EOF'
+#!/bin/bash
+##
+## Assemble bootstrap zip from built .deb files in output/
+## Usage: ./scripts/assemble-bootstrap.sh <architecture>
+##
+set -e
+
+ARCH="$1"
+if [ -z "$ARCH" ]; then
+    echo "Usage: $0 <architecture>"
+    exit 1
+fi
+
+cd /home/builder/termux-packages
+
+# Source properties to get TERMUX_PREFIX
+export TERMUX_SCRIPTDIR=/home/builder/termux-packages
+. scripts/properties.sh
+
+echo "[*] Assembling bootstrap for $ARCH (prefix: $TERMUX_PREFIX)"
+
+TMPDIR_BOOTSTRAP=$(mktemp -d /tmp/bootstrap-XXXXXX)
+trap 'rm -rf "$TMPDIR_BOOTSTRAP"' EXIT
+
+ROOTFS="$TMPDIR_BOOTSTRAP/rootfs"
+PKGDIR="$TMPDIR_BOOTSTRAP/packages"
+
+# Create dpkg directory structure
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/etc/apt/apt.conf.d"
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/etc/apt/preferences.d"
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info"
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/triggers"
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/updates"
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/var/log/apt"
+touch "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/available"
+touch "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/status"
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/tmp"
+
+declare -A EXTRACTED
+
+cd output
+if ! ls *.deb 1>/dev/null 2>&1; then
+    echo "[!] No .deb files found in output/"
+    exit 1
+fi
+
+echo "[*] Found $(ls *.deb | wc -l) deb files"
+
+for deb in *.deb; do
+    pkg_name="$(echo "$deb" | sed -E 's/^([^_]+).*/\1/')"
+
+    # Skip static packages
+    [[ "$pkg_name" == *"-static" ]] && continue
+
+    # Skip already extracted
+    if [ -n "${EXTRACTED[$pkg_name]+x}" ]; then
+        continue
+    fi
+    EXTRACTED[$pkg_name]=1
+
+    echo "[*] Extracting $deb..."
+    pkg_tmp="$PKGDIR/$pkg_name"
+    mkdir -p "$pkg_tmp"
+
+    (cd "$pkg_tmp"
+        ar x "/home/builder/termux-packages/output/$deb"
+
+        # Find data archive
+        if [ -f data.tar.xz ]; then
+            data_archive=data.tar.xz
+        elif [ -f data.tar.gz ]; then
+            data_archive=data.tar.gz
+        elif [ -f data.tar.zst ]; then
+            data_archive=data.tar.zst
+        else
+            echo "    No data archive in $deb, skipping"
+            exit 0
+        fi
+
+        # Find control archive
+        if [ -f control.tar.xz ]; then
+            control_archive=control.tar.xz
+        elif [ -f control.tar.gz ]; then
+            control_archive=control.tar.gz
+        elif [ -f control.tar.zst ]; then
+            control_archive=control.tar.zst
+        else
+            echo "    No control archive in $deb, skipping"
+            exit 0
+        fi
+
+        # Extract data files to rootfs
+        tar xf "$data_archive" -C "$ROOTFS"
+
+        # Register file list for dpkg
+        tar tf "$data_archive" | sed -E \
+            -e 's@^\./@/@' \
+            -e 's@^/$@/.@' \
+            -e 's@^([^./])@/\1@' \
+            > "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${pkg_name}.list"
+
+        # Generate md5sums
+        tar xf "$data_archive"
+        find data -type f -print0 | xargs -0 -r md5sum | sed 's@^\.@@g' \
+            > "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${pkg_name}.md5sums"
+
+        # Extract control and register package status
+        tar xf "$control_archive"
+        {
+            cat control
+            echo "Status: install ok installed"
+            echo
+        } >> "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/status"
+
+        # Copy maintainer scripts
+        for file in conffiles postinst postrm preinst prerm; do
+            if [ -f "$file" ]; then
+                cp "$file" "${ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${pkg_name}.${file}"
+            fi
+        done
+    )
+done
+
+# Create bootstrap zip
+echo "[*] Creating bootstrap-${ARCH}.zip..."
+(cd "${ROOTFS}/${TERMUX_PREFIX}"
+    # Replace symlinks with SYMLINKS.txt entries
+    while read -r -d '' link; do
+        echo "$(readlink "$link")←${link}" >> SYMLINKS.txt
+        rm -f "$link"
+    done < <(find . -type l -print0)
+
+    zip -r9 "/home/builder/termux-packages/bootstrap-${ARCH}.zip" ./*
+)
+
+echo "[*] Finished successfully (${ARCH})."
+ASSEMBLE_EOF
+
+chmod +x "$TERMUX_PACKAGES_DIR/scripts/assemble-bootstrap.sh"
+echo -e "${GREEN}  Created scripts/assemble-bootstrap.sh${NC}"
 echo ""
 
 # ─── Step 4: Setup Docker Container ──────────────────────────────────
@@ -168,7 +311,7 @@ if [ "$CLEAN_BUILD" = true ]; then
     docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 fi
 
-# Determine volume mount (handle macOS vs Linux)
+# Determine volume mount
 UNAME=$(uname)
 if [ "$UNAME" = "Darwin" ]; then
     VOLUME="$TERMUX_PACKAGES_DIR:/home/builder/termux-packages"
@@ -200,21 +343,15 @@ else
 fi
 echo ""
 
-# Helper function to execute commands inside the container
-docker_exec() {
-    docker exec "$CONTAINER_NAME" bash -c "$*"
-}
-
 # ─── Step 5: Open shell OR build ─────────────────────────────────────
 if [ "$OPEN_SHELL" = true ]; then
     echo -e "${BLUE}Opening shell in container...${NC}"
-    echo -e "${YELLOW}  You are now inside the Docker container.${NC}"
     echo -e "${YELLOW}  Working directory: /home/builder/termux-packages${NC}"
     echo ""
     echo "  Useful commands:"
     echo "    ./build-package.sh -a aarch64 <package>     # Build a single package"
-    echo "    ./scripts/generate-bootstraps.sh --help      # Bootstrap help"
-    echo "    exit                                          # Exit container"
+    echo "    ./scripts/assemble-bootstrap.sh aarch64     # Assemble bootstrap"
+    echo "    exit                                         # Exit container"
     echo ""
     docker exec -it "$CONTAINER_NAME" bash
     exit 0
@@ -223,11 +360,11 @@ fi
 echo -e "${BLUE}[5/6] Building packages inside Docker...${NC}"
 echo ""
 echo -e "${YELLOW}  This will take a LONG time (30+ minutes per architecture).${NC}"
-echo -e "${YELLOW}  All packages must be compiled from source because we use${NC}"
-echo -e "${YELLOW}  a custom package name (can't use official APT repo).${NC}"
+echo -e "${YELLOW}  All packages are compiled from source (custom package name${NC}"
+echo -e "${YELLOW}  cannot use the official APT repo).${NC}"
 echo ""
 
-# Build the list of base packages (same as generate-bootstraps.sh)
+# Build the list of base packages (same order as generate-bootstraps.sh)
 BASE_PACKAGES=(
     apt
     bash
@@ -287,140 +424,70 @@ for arch in "${ARCH_LIST[@]}"; do
         FORCE_FLAG="-f"
     fi
 
-    # Build each package
+    # Clear output directory for this arch to avoid mixing
+    docker exec "$CONTAINER_NAME" bash -c "rm -rf /home/builder/termux-packages/output/*.deb"
+
+    # Build each package (build-package.sh handles dependencies automatically)
     COUNT=0
     FAILED_PACKAGES=()
     for pkg in "${BASE_PACKAGES[@]}"; do
         COUNT=$((COUNT + 1))
         echo -e "${BLUE}  [${COUNT}/${TOTAL_PACKAGES}] Building '${pkg}' for ${arch}...${NC}"
 
-        if docker_exec "cd /home/builder/termux-packages && ./build-package.sh $FORCE_FLAG -a $arch $pkg" 2>&1; then
+        set +e
+        docker exec "$CONTAINER_NAME" bash -c \
+            "cd /home/builder/termux-packages && ./build-package.sh ${FORCE_FLAG} -a ${arch} ${pkg}"
+        BUILD_RC=$?
+        set -e
+
+        if [ $BUILD_RC -eq 0 ]; then
             echo -e "${GREEN}  OK: ${pkg}${NC}"
         else
-            echo -e "${YELLOW}  WARN: Failed to build '${pkg}', continuing...${NC}"
+            echo -e "${YELLOW}  WARN: Failed to build '${pkg}' (exit code: ${BUILD_RC}), continuing...${NC}"
             FAILED_PACKAGES+=("$pkg")
         fi
         echo ""
     done
 
+    # Report failed packages
     if [ ${#FAILED_PACKAGES[@]} -gt 0 ]; then
         echo -e "${YELLOW}  Failed packages for ${arch}: ${FAILED_PACKAGES[*]}${NC}"
-    fi
+        echo ""
 
-    # Create bootstrap archive from built debs
-    echo ""
-    echo -e "${BLUE}  Creating bootstrap-${arch}.zip...${NC}"
-
-    # Use the official generate-bootstraps approach but with local debs
-    # We build a minimal bootstrap assembler inside the container
-    docker_exec "cd /home/builder/termux-packages && bash -c '
-        set -e
-        . scripts/properties.sh
-
-        TMPDIR_BOOTSTRAP=\$(mktemp -d /tmp/bootstrap-XXXXXX)
-        trap \"rm -rf \$TMPDIR_BOOTSTRAP\" EXIT
-
-        ROOTFS=\"\$TMPDIR_BOOTSTRAP/rootfs\"
-        PKGDIR=\"\$TMPDIR_BOOTSTRAP/packages\"
-
-        # Create directory structure
-        mkdir -p \"\${ROOTFS}/\${TERMUX_PREFIX}/etc/apt/apt.conf.d\"
-        mkdir -p \"\${ROOTFS}/\${TERMUX_PREFIX}/etc/apt/preferences.d\"
-        mkdir -p \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/info\"
-        mkdir -p \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/triggers\"
-        mkdir -p \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/updates\"
-        mkdir -p \"\${ROOTFS}/\${TERMUX_PREFIX}/var/log/apt\"
-        touch \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/available\"
-        touch \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/status\"
-        mkdir -p \"\${ROOTFS}/\${TERMUX_PREFIX}/tmp\"
-
-        EXTRACTED=()
-
-        cd output
-        if [ -z \"\$(ls -A *.deb 2>/dev/null)\" ]; then
-            echo \"No .deb files found in output/\"
-            exit 1
-        fi
-
-        for deb in *.deb; do
-            pkg_name=\"\$(echo \"\$deb\" | sed -E \"s/^([^_]+).*/\1/\")\"
-
-            # Skip static packages
-            [[ \"\$pkg_name\" == *\"-static\" ]] && continue
-
-            # Skip already extracted
-            if printf \"%s\n\" \"\${EXTRACTED[@]}\" | grep -qx \"\$pkg_name\" 2>/dev/null; then
-                continue
+        # Retry failed packages once (dependency might have been built by now)
+        echo -e "${BLUE}  Retrying failed packages...${NC}"
+        STILL_FAILED=()
+        for pkg in "${FAILED_PACKAGES[@]}"; do
+            echo -e "${BLUE}  Retrying '${pkg}'...${NC}"
+            set +e
+            docker exec "$CONTAINER_NAME" bash -c \
+                "cd /home/builder/termux-packages && ./build-package.sh ${FORCE_FLAG} -a ${arch} ${pkg}"
+            RETRY_RC=$?
+            set -e
+            if [ $RETRY_RC -eq 0 ]; then
+                echo -e "${GREEN}  OK: ${pkg} (retry succeeded)${NC}"
+            else
+                echo -e "${RED}  FAIL: ${pkg}${NC}"
+                STILL_FAILED+=("$pkg")
             fi
-            EXTRACTED+=(\"\$pkg_name\")
-
-            echo \"  Extracting \$deb...\"
-            pkg_tmp=\"\$PKGDIR/\$pkg_name\"
-            mkdir -p \"\$pkg_tmp\"
-
-            (cd \"\$pkg_tmp\"
-                ar x \"/home/builder/termux-packages/output/\$deb\"
-
-                if [ -f data.tar.xz ]; then
-                    data_archive=data.tar.xz
-                elif [ -f data.tar.gz ]; then
-                    data_archive=data.tar.gz
-                elif [ -f data.tar.zst ]; then
-                    data_archive=data.tar.zst
-                else
-                    echo \"No data archive in \$deb, skipping\"
-                    exit 0
-                fi
-
-                if [ -f control.tar.xz ]; then
-                    control_archive=control.tar.xz
-                elif [ -f control.tar.gz ]; then
-                    control_archive=control.tar.gz
-                elif [ -f control.tar.zst ]; then
-                    control_archive=control.tar.zst
-                else
-                    echo \"No control archive in \$deb, skipping\"
-                    exit 0
-                fi
-
-                tar xf \"\$data_archive\" -C \"\$ROOTFS\"
-
-                tar tf \"\$data_archive\" | sed -E -e \"s@^\./@/@\" -e \"s@^/\$@/.@\" -e \"s@^([^./])@/\1@\" \
-                    > \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/info/\${pkg_name}.list\"
-
-                tar xf \"\$data_archive\"
-                find data -type f -print0 | xargs -0 -r md5sum | sed \"s@^\.\$@@g\" \
-                    > \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/info/\${pkg_name}.md5sums\"
-
-                tar xf \"\$control_archive\"
-                {
-                    cat control
-                    echo \"Status: install ok installed\"
-                    echo
-                } >> \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/status\"
-
-                for file in conffiles postinst postrm preinst prerm; do
-                    if [ -f \"\$file\" ]; then
-                        cp \"\$file\" \"\${ROOTFS}/\${TERMUX_PREFIX}/var/lib/dpkg/info/\${pkg_name}.\${file}\"
-                    fi
-                done
-            )
         done
 
-        echo \"  Creating bootstrap-${arch}.zip...\"
-        (cd \"\${ROOTFS}/\${TERMUX_PREFIX}\"
-            while read -r -d \"\" link; do
-                echo \"\$(readlink \"\$link\")←\${link}\" >> SYMLINKS.txt
-                rm -f \"\$link\"
-            done < <(find . -type l -print0)
+        if [ ${#STILL_FAILED[@]} -gt 0 ]; then
+            echo -e "${RED}  Still failed after retry: ${STILL_FAILED[*]}${NC}"
+        fi
+        echo ""
+    fi
 
-            zip -r9 \"/home/builder/termux-packages/bootstrap-${arch}.zip\" ./*
-        )
+    # Assemble bootstrap archive using the separate script (avoids quoting issues)
+    echo -e "${BLUE}  Assembling bootstrap-${arch}.zip...${NC}"
 
-        echo \"  Done: bootstrap-${arch}.zip\"
-    '"
+    set +e
+    docker exec "$CONTAINER_NAME" bash -c \
+        "cd /home/builder/termux-packages && bash scripts/assemble-bootstrap.sh ${arch}"
+    ASSEMBLE_RC=$?
+    set -e
 
-    if [ -f "$TERMUX_PACKAGES_DIR/bootstrap-${arch}.zip" ]; then
+    if [ $ASSEMBLE_RC -eq 0 ] && [ -f "$TERMUX_PACKAGES_DIR/bootstrap-${arch}.zip" ]; then
         SIZE=$(ls -lh "$TERMUX_PACKAGES_DIR/bootstrap-${arch}.zip" | awk '{print $5}')
         echo -e "${GREEN}  bootstrap-${arch}.zip created (${SIZE})${NC}"
     else
