@@ -10,9 +10,10 @@
 ##   - git, curl
 ##
 ## Usage:
-##   ./build-bootstrap.sh                              # Build all architectures
+##   ./build-bootstrap.sh                              # Build bootstrap only
+##   ./build-bootstrap.sh --all                        # Build ALL ~2800+ packages
+##   ./build-bootstrap.sh --all --repo                 # Build all + generate APT repo
 ##   ./build-bootstrap.sh --arch aarch64               # Build single architecture
-##   ./build-bootstrap.sh --arch aarch64,x86_64        # Build multiple architectures
 ##   ./build-bootstrap.sh --add vim,git,openssh         # Add extra packages
 ##   ./build-bootstrap.sh --force                       # Force rebuild all
 ##   ./build-bootstrap.sh --clean                       # Clean and start fresh
@@ -28,6 +29,8 @@ ADDITIONAL_PACKAGES=""
 FORCE_BUILD=false
 CLEAN_BUILD=false
 OPEN_SHELL=false
+BUILD_ALL=false
+BUILD_REPO=false
 CONTAINER_NAME="termux-package-builder"
 DOCKER_IMAGE="ghcr.io/termux/package-builder"
 
@@ -56,6 +59,14 @@ while [[ $# -gt 0 ]]; do
             ADDITIONAL_PACKAGES="$2"
             shift 2
             ;;
+        --all)
+            BUILD_ALL=true
+            shift
+            ;;
+        --repo)
+            BUILD_REPO=true
+            shift
+            ;;
         --force|-f)
             FORCE_BUILD=true
             shift
@@ -69,7 +80,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            head -20 "$0" | grep "^##" | sed 's/^## \?//'
+            head -22 "$0" | grep "^##" | sed 's/^## \?//'
             exit 0
             ;;
         *)
@@ -80,15 +91,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+MODE="bootstrap"
+if [ "$BUILD_ALL" = true ]; then
+    MODE="all packages"
+fi
+
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
 echo -e "${CYAN}  Termux Bootstrap Builder${NC}"
 echo -e "${CYAN}  Package: ${GREEN}${CUSTOM_PACKAGE_NAME}${NC}"
 echo -e "${CYAN}  Arch:    ${GREEN}${ARCHITECTURES}${NC}"
+echo -e "${CYAN}  Mode:    ${GREEN}${MODE}${NC}"
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
 echo ""
 
 # ─── Step 1: Prerequisites ───────────────────────────────────────────
-echo -e "${BLUE}[1/6] Checking prerequisites...${NC}"
+echo -e "${BLUE}[1/7] Checking prerequisites...${NC}"
 
 for cmd in docker git curl; do
     if ! command -v "$cmd" &>/dev/null; then
@@ -106,7 +123,7 @@ echo -e "${GREEN}  OK${NC}"
 echo ""
 
 # ─── Step 2: Clone termux-packages ───────────────────────────────────
-echo -e "${BLUE}[2/6] Preparing termux-packages repository...${NC}"
+echo -e "${BLUE}[2/7] Preparing termux-packages repository...${NC}"
 
 if [ "$CLEAN_BUILD" = true ] && [ -d "$TERMUX_PACKAGES_DIR" ]; then
     echo -e "${YELLOW}  Removing existing termux-packages (--clean)...${NC}"
@@ -123,7 +140,7 @@ fi
 echo ""
 
 # ─── Step 3: Patch properties.sh ─────────────────────────────────────
-echo -e "${BLUE}[3/6] Patching properties.sh -> ${CUSTOM_PACKAGE_NAME}...${NC}"
+echo -e "${BLUE}[3/7] Patching properties.sh -> ${CUSTOM_PACKAGE_NAME}...${NC}"
 
 PROPERTIES_FILE="$TERMUX_PACKAGES_DIR/scripts/properties.sh"
 
@@ -322,7 +339,7 @@ echo -e "${GREEN}  Created scripts/assemble-bootstrap.sh${NC}"
 echo ""
 
 # ─── Step 4: Setup Docker Container ──────────────────────────────────
-echo -e "${BLUE}[4/6] Setting up Docker container...${NC}"
+echo -e "${BLUE}[4/7] Setting up Docker container...${NC}"
 
 # Clean up old container if doing clean build
 if [ "$CLEAN_BUILD" = true ]; then
@@ -376,9 +393,8 @@ if [ "$OPEN_SHELL" = true ]; then
     exit 0
 fi
 
-echo -e "${BLUE}[5/6] Building packages inside Docker...${NC}"
+echo -e "${BLUE}[5/7] Building packages inside Docker...${NC}"
 echo ""
-echo -e "${YELLOW}  This will take a LONG time (30+ minutes per architecture).${NC}"
 echo -e "${YELLOW}  All packages are compiled from source (custom package name${NC}"
 echo -e "${YELLOW}  cannot use the official APT repo).${NC}"
 echo ""
@@ -427,12 +443,53 @@ BASE_PACKAGES=(
 if [ -n "$ADDITIONAL_PACKAGES" ]; then
     IFS=',' read -ra EXTRA_PKGS <<< "$ADDITIONAL_PACKAGES"
     BASE_PACKAGES+=("${EXTRA_PKGS[@]}")
-    echo -e "${CYAN}  Extra packages: ${ADDITIONAL_PACKAGES}${NC}"
+fi
+
+# If --all flag, scan all packages from the repo
+if [ "$BUILD_ALL" = true ]; then
+    echo -e "${CYAN}  Mode: BUILD ALL PACKAGES${NC}"
+    echo ""
+
+    # Collect all package directory names from packages/, root-packages/, x11-packages/
+    ALL_PACKAGES=()
+    for pkg_dir in "$TERMUX_PACKAGES_DIR/packages" \
+                   "$TERMUX_PACKAGES_DIR/root-packages" \
+                   "$TERMUX_PACKAGES_DIR/x11-packages"; do
+        if [ -d "$pkg_dir" ]; then
+            for pkg_path in "$pkg_dir"/*/; do
+                [ -f "$pkg_path/build.sh" ] || continue
+                pkg_name=$(basename "$pkg_path")
+                ALL_PACKAGES+=("$pkg_name")
+            done
+        fi
+    done
+
+    # Merge: bootstrap first, then everything else (deduplicated)
+    MERGED_PACKAGES=("${BASE_PACKAGES[@]}")
+    declare -A SEEN
+    for pkg in "${BASE_PACKAGES[@]}"; do
+        SEEN[$pkg]=1
+    done
+    for pkg in "${ALL_PACKAGES[@]}"; do
+        if [ -z "${SEEN[$pkg]+x}" ]; then
+            MERGED_PACKAGES+=("$pkg")
+            SEEN[$pkg]=1
+        fi
+    done
+
+    BASE_PACKAGES=("${MERGED_PACKAGES[@]}")
+    echo -e "${CYAN}  Total packages found: ${#BASE_PACKAGES[@]}${NC}"
+    echo -e "${YELLOW}  WARNING: This will take MANY HOURS to complete.${NC}"
+    echo -e "${YELLOW}  Bootstrap packages are built first, then everything else.${NC}"
+    echo -e "${YELLOW}  You can safely Ctrl+C and re-run - already built packages are cached.${NC}"
+    echo ""
+else
+    echo -e "${CYAN}  Mode: BOOTSTRAP ONLY (${#BASE_PACKAGES[@]} packages)${NC}"
+    echo -e "${YELLOW}  Use --all to build all ~2800+ packages for the full APT repo.${NC}"
+    echo ""
 fi
 
 TOTAL_PACKAGES=${#BASE_PACKAGES[@]}
-echo -e "${CYAN}  Total packages to build: ${TOTAL_PACKAGES}${NC}"
-echo ""
 
 # Build for each architecture
 IFS=',' read -ra ARCH_LIST <<< "$ARCHITECTURES"
@@ -440,6 +497,7 @@ IFS=',' read -ra ARCH_LIST <<< "$ARCHITECTURES"
 for arch in "${ARCH_LIST[@]}"; do
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${CYAN}  Building for architecture: ${arch}${NC}"
+    echo -e "${CYAN}  Packages: ${TOTAL_PACKAGES}${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
@@ -448,61 +506,68 @@ for arch in "${ARCH_LIST[@]}"; do
         FORCE_FLAG="-f"
     fi
 
-    # Clear output directory for this arch to avoid mixing
-    docker exec "$CONTAINER_NAME" bash -c "rm -rf /home/builder/termux-packages/output/*.deb"
-
     # Build each package (build-package.sh handles dependencies automatically)
     COUNT=0
     FAILED_PACKAGES=()
+    BUILT_OK=0
+    SKIPPED=0
     for pkg in "${BASE_PACKAGES[@]}"; do
         COUNT=$((COUNT + 1))
-        echo -e "${BLUE}  [${COUNT}/${TOTAL_PACKAGES}] Building '${pkg}' for ${arch}...${NC}"
+
+        # Progress display
+        PCT=$((COUNT * 100 / TOTAL_PACKAGES))
+        echo -e "${BLUE}  [${COUNT}/${TOTAL_PACKAGES}] (${PCT}%) Building '${pkg}' for ${arch}...${NC}"
 
         set +e
         docker exec "$CONTAINER_NAME" bash -c \
-            "cd /home/builder/termux-packages && ./build-package.sh ${FORCE_FLAG} -a ${arch} ${pkg}"
+            "cd /home/builder/termux-packages && ./build-package.sh ${FORCE_FLAG} -a ${arch} ${pkg}" 2>&1
         BUILD_RC=$?
         set -e
 
         if [ $BUILD_RC -eq 0 ]; then
-            echo -e "${GREEN}  OK: ${pkg}${NC}"
+            BUILT_OK=$((BUILT_OK + 1))
         else
-            echo -e "${YELLOW}  WARN: Failed to build '${pkg}' (exit code: ${BUILD_RC}), continuing...${NC}"
+            echo -e "${YELLOW}    WARN: Failed '${pkg}' (exit: ${BUILD_RC})${NC}"
             FAILED_PACKAGES+=("$pkg")
         fi
-        echo ""
     done
 
-    # Report failed packages
-    if [ ${#FAILED_PACKAGES[@]} -gt 0 ]; then
-        echo -e "${YELLOW}  Failed packages for ${arch}: ${FAILED_PACKAGES[*]}${NC}"
-        echo ""
+    echo ""
+    echo -e "${GREEN}  Build summary for ${arch}:${NC}"
+    echo -e "    OK:     ${BUILT_OK}"
+    echo -e "    Failed: ${#FAILED_PACKAGES[@]}"
 
-        # Retry failed packages once (dependency might have been built by now)
-        echo -e "${BLUE}  Retrying failed packages...${NC}"
+    # Retry failed packages once
+    if [ ${#FAILED_PACKAGES[@]} -gt 0 ]; then
+        echo ""
+        echo -e "${BLUE}  Retrying ${#FAILED_PACKAGES[@]} failed packages...${NC}"
         STILL_FAILED=()
         for pkg in "${FAILED_PACKAGES[@]}"; do
-            echo -e "${BLUE}  Retrying '${pkg}'...${NC}"
             set +e
             docker exec "$CONTAINER_NAME" bash -c \
-                "cd /home/builder/termux-packages && ./build-package.sh ${FORCE_FLAG} -a ${arch} ${pkg}"
+                "cd /home/builder/termux-packages && ./build-package.sh ${FORCE_FLAG} -a ${arch} ${pkg}" 2>&1
             RETRY_RC=$?
             set -e
             if [ $RETRY_RC -eq 0 ]; then
-                echo -e "${GREEN}  OK: ${pkg} (retry succeeded)${NC}"
+                BUILT_OK=$((BUILT_OK + 1))
             else
-                echo -e "${RED}  FAIL: ${pkg}${NC}"
                 STILL_FAILED+=("$pkg")
             fi
         done
 
         if [ ${#STILL_FAILED[@]} -gt 0 ]; then
-            echo -e "${RED}  Still failed after retry: ${STILL_FAILED[*]}${NC}"
+            echo -e "${RED}  Still failed (${#STILL_FAILED[@]}): ${STILL_FAILED[*]:0:20}...${NC}"
+            # Save failed list to file for reference
+            printf '%s\n' "${STILL_FAILED[@]}" > "$TERMUX_PACKAGES_DIR/failed-${arch}.txt"
+            echo -e "${YELLOW}  Full list saved to: termux-packages/failed-${arch}.txt${NC}"
+        else
+            echo -e "${GREEN}  All retries succeeded!${NC}"
         fi
-        echo ""
     fi
 
-    # Assemble bootstrap archive using the separate script (avoids quoting issues)
+    echo ""
+
+    # Assemble bootstrap archive
     echo -e "${BLUE}  Assembling bootstrap-${arch}.zip...${NC}"
 
     set +e
@@ -521,7 +586,7 @@ for arch in "${ARCH_LIST[@]}"; do
 done
 
 # ─── Step 6: Copy to termux-app ──────────────────────────────────────
-echo -e "${BLUE}[6/6] Copying bootstrap archives to termux-app...${NC}"
+echo -e "${BLUE}[6/7] Copying bootstrap archives to termux-app...${NC}"
 
 mkdir -p "$BOOTSTRAP_DEST"
 
@@ -537,6 +602,22 @@ for arch in "${ARCH_LIST[@]}"; do
         echo -e "  ${YELLOW}bootstrap-${arch}.zip not found, skipped.${NC}"
     fi
 done
+echo ""
+
+# ─── Step 7: Generate APT repo (if --repo) ───────────────────────────
+if [ "$BUILD_REPO" = true ]; then
+    echo -e "${BLUE}[7/7] Generating APT repository...${NC}"
+    if [ -x "$SCRIPT_DIR/build-repo.sh" ]; then
+        "$SCRIPT_DIR/build-repo.sh" --arch "$ARCHITECTURES"
+    else
+        echo -e "${RED}  Error: build-repo.sh not found. Run it separately.${NC}"
+    fi
+else
+    echo -e "${BLUE}[7/7] Skipping APT repo generation (use --repo to enable).${NC}"
+    if [ "$BUILD_ALL" = true ]; then
+        echo -e "${YELLOW}  To generate the repo, run: ./build-repo.sh${NC}"
+    fi
+fi
 
 echo ""
 if [ $COPIED -gt 0 ]; then
@@ -544,10 +625,14 @@ if [ $COPIED -gt 0 ]; then
     echo -e "${GREEN}  Build completed! ${COPIED} bootstrap archive(s) copied.${NC}"
     echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
     echo ""
-    echo "Next: run ./build.sh to build the APK."
+    echo "Next steps:"
+    echo "  ./build.sh                    # Build APK"
+    if [ "$BUILD_ALL" = true ] && [ "$BUILD_REPO" != true ]; then
+        echo "  ./build-repo.sh               # Generate APT repository"
+        echo "  rsync repos/apt/ server:...    # Deploy repo to web server"
+    fi
     echo ""
-    echo "Tip: to open a shell in the build container:"
-    echo "  ./build-bootstrap.sh --shell"
+    echo "  ./build-bootstrap.sh --shell  # Open Docker shell for debugging"
 else
     echo -e "${RED}No bootstrap archives were created.${NC}"
     echo ""
