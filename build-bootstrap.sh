@@ -283,6 +283,25 @@ for deb in *.deb; do
     )
 done
 
+# Configure APT sources.list to point to custom repository
+echo "[*] Configuring APT sources.list..."
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/etc/apt"
+
+# Write custom sources.list pointing to packages.pepebot.space
+cat > "${ROOTFS}/${TERMUX_PREFIX}/etc/apt/sources.list" << 'SOURCES_EOF'
+# Pepebot Terminal repository
+deb [trusted=yes] https://packages.pepebot.space/repos/apt stable main
+SOURCES_EOF
+
+# Also create sources.list.d directory for additional repos
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/etc/apt/sources.list.d"
+
+# Configure apt to allow unsigned repo (since we use [trusted=yes])
+mkdir -p "${ROOTFS}/${TERMUX_PREFIX}/etc/apt/apt.conf.d"
+cat > "${ROOTFS}/${TERMUX_PREFIX}/etc/apt/apt.conf.d/99pepebot" << 'APT_CONF_EOF'
+Acquire::AllowInsecureRepositories "true";
+APT_CONF_EOF
+
 # Create bootstrap zip
 echo "[*] Creating bootstrap-${ARCH}.zip..."
 (cd "${ROOTFS}/${TERMUX_PREFIX}"
