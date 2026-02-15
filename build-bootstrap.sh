@@ -384,13 +384,17 @@ echo -e "${YELLOW}  cannot use the official APT repo).${NC}"
 echo ""
 
 # Build the list of base packages (same order as generate-bootstraps.sh)
+# NOTE: bzip2, curl, xz-utils are subpackages, so we build their parent:
+#   bzip2    -> libbz2    (bzip2.subpackage.sh)
+#   curl     -> libcurl   (curl.subpackage.sh)
+#   xz-utils -> liblzma   (xz-utils.subpackage.sh)
 BASE_PACKAGES=(
     apt
     bash
-    bzip2
+    libbz2
     command-not-found
     coreutils
-    curl
+    libcurl
     dash
     diffutils
     findutils
@@ -402,11 +406,12 @@ BASE_PACKAGES=(
     psmisc
     sed
     tar
+    termux-core
     termux-exec
     termux-keyring
     termux-tools
     util-linux
-    xz-utils
+    liblzma
     ed
     debianutils
     dos2unix
