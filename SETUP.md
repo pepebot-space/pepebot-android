@@ -40,7 +40,7 @@ cd pepebot-android
 ### 2. Build (No Configuration Needed!)
 
 The build script is pre-configured with the correct pepebot repository:
-- **https://github.com/anak10thn/pepebot**
+- **https://github.com/pepebot-space/pepebot**
 
 Just run:
 ```bash
@@ -54,7 +54,7 @@ No setup required! The script will automatically clone pepebot if it doesn't exi
 After building, install the APK:
 
 The build script will automatically:
-1. Clone https://github.com/anak10thn/pepebot (if not exists)
+1. Clone https://github.com/pepebot-space/pepebot (if not exists)
 2. Pull latest changes (if already exists)
 3. Build Go binaries for all Android architectures:
    - `pepebot-arm64` (ARM 64-bit - most modern devices)
@@ -121,7 +121,7 @@ pepebot-android/
 
 ### Build fails: "pepebot repository not found"
 - Check your internet connection
-- The script clones from: https://github.com/anak10thn/pepebot
+- The script clones from: https://github.com/pepebot-space/pepebot
 - Make sure you have access to the repository
 
 ### Build fails: "Go not found"

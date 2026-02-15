@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-**Goal:** Create a standalone Android application that wraps the [pepebot](https://github.com/anak10thn/pepebot) golang server.
+**Goal:** Create a standalone Android application that wraps the [pepebot](https://github.com/pepebot-space/pepebot) golang server.
 **Base Code:** Fork of [termux/termux-app](https://github.com/termux/termux-app).
 **UX Concept:** **"Hybrid Terminal Interface"**.
 
@@ -42,7 +42,7 @@
 * Create a `bootstrap-arm64.zip` containing:
 * Minimal Linux Rootfs (`aarch64`).
 * **Node.js Binary:** Pre-patched for Android.
-* **Pepebot Repo:** Clone `https://github.com/anak10thn/pepebot` into `/files/home/pepebot`.
+* **Pepebot Repo:** Clone `https://github.com/pepebot-space/pepebot` into `/files/home/pepebot`.
 * **Dependencies:** Pre-install `node_modules` (ensure `npm install` is run on an ARM64 environment or cross-compiled).
 
 

@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PEPEBOT_REPO="https://github.com/anak10thn/pepebot.git"
+PEPEBOT_REPO="https://github.com/pepebot-space/pepebot.git"
 
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

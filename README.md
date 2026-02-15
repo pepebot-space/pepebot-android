@@ -110,7 +110,7 @@ Just run the build script - it will automatically clone pepebot and build everyt
 ```
 
 The build script is pre-configured with the correct pepebot repository:
-- `https://github.com/anak10thn/pepebot.git`
+- `https://github.com/pepebot-space/pepebot.git`
 
 This script will:
 1. **Clone** pepebot repository (if not exists) or **pull** latest changes
@@ -172,7 +172,7 @@ The app uses the Termux architecture with custom modifications:
 ## Repository Setup
 
 This repository does NOT include the pepebot Go server source code. The build script will automatically clone it from:
-- **https://github.com/anak10thn/pepebot**
+- **https://github.com/pepebot-space/pepebot**
 
 Simply run:
 ```bash
