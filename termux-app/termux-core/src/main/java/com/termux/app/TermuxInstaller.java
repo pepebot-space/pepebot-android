@@ -476,13 +476,13 @@ final class TermuxInstaller {
                     "export LD_LIBRARY_PATH=" + ldLibPath + "\n" +
                     "export PATH=" + binPath + ":" + binPath + "/applets:/system/bin:/system/xbin\n" +
                     "export LANG=en_US.UTF-8\n" +
-                    "export SHELL=/system/bin/sh\n" +
+                    "export SHELL=" + binPath + "/bash\n" +
                     "export TERMUX_PREFIX=" + TERMUX_PREFIX_DIR_PATH + "\n" +
                     "cd \"$HOME\"\n" +
                     "if [ -f " + etcPath + "/motd ]; then\n" +
                     "    cat " + etcPath + "/motd\n" +
                     "fi\n" +
-                    "exec /system/bin/sh\n";
+                    "exec " + binPath + "/bash\n";
             FileOutputStream fos = new FileOutputStream(loginFile);
             fos.write(wrapperScript.getBytes());
             fos.close();
@@ -506,6 +506,19 @@ final class TermuxInstaller {
         String prefix = TERMUX_PREFIX_DIR_PATH;
         String binDir = prefix + "/bin";
         String libDir = prefix + "/lib";
+
+        // Shell interpreter wrappers (bash, sh, env)
+        // Scripts keep their original shebangs (e.g. #!/.../bin/bash)
+        // which resolve to these wrappers that set LD_LIBRARY_PATH
+        String[] shellBinaries = { "bash", "sh" };
+        for (String name : shellBinaries) {
+            createSingleElfWrapper(binDir, libDir, name,
+                    "exec \"" + binDir + "/" + name + ".bin\" \"$@\"\n");
+        }
+        // env wrapper needs to set PATH so it can find other commands
+        createSingleElfWrapper(binDir, libDir, "env",
+                "export PATH=\"" + binDir + ":" + binDir + "/applets:/system/bin:/system/xbin\"\n" +
+                        "exec \"" + binDir + "/env.bin\" \"$@\"\n");
 
         // Create apt.conf with all correct path overrides.
         // This is used via APT_CONFIG env var so apt reads correct paths
@@ -646,10 +659,6 @@ final class TermuxInstaller {
         if (files == null)
             return;
 
-        // Old and new prefix paths for shebang replacement
-        String oldPrefix = "/data/data/" + oldPkg + "/files/usr";
-        String newPrefix = "/data/data/" + newPkg + "/files/usr";
-
         for (File file : files) {
             if (file.isDirectory() && !isSymlink(file)) {
                 patchTextFilesRecursive(file, oldPkg, newPkg);
@@ -679,23 +688,6 @@ final class TermuxInstaller {
                     if (text.contains(oldPkg)) {
                         text = text.replace(oldPkg, newPkg);
                         modified = true;
-                    }
-
-                    // 2. Replace Termux shebangs with /system/bin/sh
-                    // Since bash/sh ELF binaries have broken PT_INTERP linker paths,
-                    // all scripts must use /system/bin/sh as interpreter
-                    if (text.startsWith("#!")) {
-                        String newText = text;
-                        newText = newText.replace("#!" + newPrefix + "/bin/sh", "#!/system/bin/sh");
-                        newText = newText.replace("#!" + newPrefix + "/bin/bash", "#!/system/bin/sh");
-                        newText = newText.replace("#!" + newPrefix + "/bin/env", "#!/system/bin/env");
-                        newText = newText.replace("#!" + oldPrefix + "/bin/sh", "#!/system/bin/sh");
-                        newText = newText.replace("#!" + oldPrefix + "/bin/bash", "#!/system/bin/sh");
-                        newText = newText.replace("#!" + oldPrefix + "/bin/env", "#!/system/bin/env");
-                        if (!newText.equals(text)) {
-                            text = newText;
-                            modified = true;
-                        }
                     }
 
                     if (modified) {
