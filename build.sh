@@ -19,12 +19,11 @@ PEPEBOT_REPO="https://github.com/anak10thn/pepebot.git"
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PEPEBOT_DIR="$SCRIPT_DIR/pepebot"
-TERMUX_APP_DIR="$SCRIPT_DIR/termux-app"
-ASSETS_DIR="$TERMUX_APP_DIR/app/src/main/assets"
+ASSETS_DIR="$SCRIPT_DIR/app/src/main/assets"
 
 echo "📂 Working directories:"
 echo "  Pepebot: $PEPEBOT_DIR"
-echo "  Termux App: $TERMUX_APP_DIR"
+echo "  Assets: $ASSETS_DIR"
 echo ""
 
 # Step 0: Clone Pepebot repository if not exists
@@ -92,13 +91,13 @@ echo ""
 
 # Step 3: Build Android APK
 echo "🏗️  Step 3: Building Android APK..."
-cd "$TERMUX_APP_DIR"
+cd "$SCRIPT_DIR"
 
 echo "  Cleaning previous build..."
 ./gradlew clean > /dev/null 2>&1
 
 echo "  Building debug APK..."
-./gradlew assembleDebug
+./gradlew :app:assembleDebug
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Android APK built successfully${NC}"
@@ -115,10 +114,10 @@ if [ $? -eq 0 ]; then
 
     echo -e "${GREEN}🎉 Build completed successfully!${NC}"
     echo ""
-    echo "📍 APKs location: $TERMUX_APP_DIR/app/build/outputs/apk/debug/"
+    echo "📍 APKs location: $SCRIPT_DIR/app/build/outputs/apk/debug/"
     echo ""
     echo "To install on device:"
-    echo "  adb install -r app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk"
+    echo "  adb install -r app/build/outputs/apk/debug/pepebot_debug_universal.apk"
 else
     echo -e "${RED}❌ Build failed${NC}"
     exit 1

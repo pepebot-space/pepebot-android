@@ -1,0 +1,94 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.terminal.pepebot"
+
+    compileSdkVersion project.properties.compileSdkVersion.toInteger()
+    ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
+
+    dependencies {
+        implementation project(":termux-app:termux-core")
+        implementation project(":termux-app:terminal-view")
+        implementation project(":termux-app:termux-shared")
+
+        implementation "androidx.annotation:annotation:1.9.0"
+        implementation "androidx.core:core:1.13.1"
+        implementation "androidx.drawerlayout:drawerlayout:1.2.0"
+        implementation "androidx.viewpager:viewpager:1.0.0"
+        implementation "com.google.android.material:material:1.12.0"
+    }
+
+    defaultConfig {
+        applicationId "com.terminal.pepebot"
+        minSdkVersion project.properties.minSdkVersion.toInteger()
+        targetSdkVersion project.properties.targetSdkVersion.toInteger()
+        versionCode 1
+        versionName "1.0.0"
+
+        buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"apt-android-7\""
+
+        splits {
+            abi {
+                enable (gradle.startParameter.taskNames.any { it.contains("Debug") })
+                reset ()
+                include 'x86', 'x86_64', 'armeabi-v7a', 'arm64-v8a'
+                universalApk true
+            }
+        }
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('../termux-app/termux-core/testkey_untrusted.jks')
+            keyAlias 'alias'
+            storePassword 'xrj45yWGLbsO7W0v'
+            keyPassword 'xrj45yWGLbsO7W0v'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        disable 'ProtectedPermissions'
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def abi = output.getFilter(com.android.build.OutputFile.ABI)
+            outputFileName = new File("pepebot_" + variant.buildType.name + "_" + (abi ? abi : "universal") + ".apk")
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
+}

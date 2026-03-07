@@ -1,0 +1,10 @@
+rootProject.name = 'pepebot-android'
+
+include ':app'
+include ':termux-app:termux-core'
+include ':termux-app:termux-shared'
+include ':termux-app:terminal-emulator'
+include ':termux-app:terminal-view'
+
+// Map the termux-core module from the renamed directory
+project(':termux-app:termux-core').projectDir = new File(rootDir, 'termux-app/termux-core')
