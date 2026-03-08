@@ -507,19 +507,6 @@ final class TermuxInstaller {
         String binDir = prefix + "/bin";
         String libDir = prefix + "/lib";
 
-        // Shell interpreter wrappers (bash, sh, env)
-        // Scripts keep their original shebangs (e.g. #!/.../bin/bash)
-        // which resolve to these wrappers that set LD_LIBRARY_PATH
-        String[] shellBinaries = { "bash", "sh" };
-        for (String name : shellBinaries) {
-            createSingleElfWrapper(binDir, libDir, name,
-                    "exec \"" + binDir + "/" + name + ".bin\" \"$@\"\n");
-        }
-        // env wrapper needs to set PATH so it can find other commands
-        createSingleElfWrapper(binDir, libDir, "env",
-                "export PATH=\"" + binDir + ":" + binDir + "/applets:/system/bin:/system/xbin\"\n" +
-                        "exec \"" + binDir + "/env.bin\" \"$@\"\n");
-
         // Create apt.conf with all correct path overrides.
         // This is used via APT_CONFIG env var so apt reads correct paths
         // during early initialization, before it tries to access apt.conf.d/ etc.
@@ -577,12 +564,50 @@ final class TermuxInstaller {
             Logger.logStackTraceWithMessage(LOG_TAG, "Failed to create apt.conf", e);
         }
 
-        // apt family wrappers using APT_CONFIG env var
+        // Create a patch script that safely patches text files (skipping ELF binaries)
+        String patchScript = "#!/system/bin/sh\n" +
+                "export LD_LIBRARY_PATH=\"" + libDir + "\"\n" +
+                "export PATH=\"" + binDir + ":" + binDir + "/applets:/system/bin:/system/xbin\"\n" +
+                "for f in \"" + prefix + "/bin/\"* \"" + prefix + "/libexec/\"* ; do\n" +
+                "  [ -f \"$f\" ] || continue\n" +
+                "  [ \"${f##*/}\" = \"pepebot-patch-pkg\" ] && continue\n" +
+                "  # Skip ELF binaries by checking magic bytes\n" +
+                "  magic=\"$(dd if=\"$f\" bs=1 count=4 2>/dev/null)\"\n" +
+                "  case \"$magic\" in\n" +
+                "    *ELF*) continue ;;\n" +
+                "  esac\n" +
+                "  sed -i 's|/data/data/com.termux|/data/data/" +
+                TermuxConstants.TERMUX_PACKAGE_NAME + "|g' \"$f\" 2>/dev/null\n" +
+                "done\n";
+        try {
+            File patchFile = new File(binDir + "/pepebot-patch-pkg");
+            FileOutputStream pfos = new FileOutputStream(patchFile);
+            pfos.write(patchScript.getBytes());
+            pfos.close();
+            Os.chmod(patchFile.getAbsolutePath(), 0700);
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to create patch script", e);
+        }
+
+        // apt/apt-get wrappers: run apt.bin then patch newly installed scripts
         String aptConfPath = prefix + "/etc/apt/apt.conf";
-        String[] aptBinaries = { "apt", "apt-get", "apt-cache", "apt-config", "apt-mark" };
-        for (String name : aptBinaries) {
+        String patchCmd = binDir + "/pepebot-patch-pkg\n";
+        String[] aptInstallBinaries = { "apt", "apt-get" };
+        for (String name : aptInstallBinaries) {
             createSingleElfWrapper(binDir, libDir, name,
-                    "export APT_CONFIG=\"" + aptConfPath + "\"\n" +
+                    "export TMPDIR=\"" + prefix + "/tmp\"\n" +
+                            "export APT_CONFIG=\"" + aptConfPath + "\"\n" +
+                            "\"" + binDir + "/" + name + ".bin\" \"$@\"\n" +
+                            "APT_EXIT=$?\n" +
+                            patchCmd +
+                            "exit $APT_EXIT\n");
+        }
+        // apt-cache, apt-config, apt-mark don't install packages, no patching needed
+        String[] aptOtherBinaries = { "apt-cache", "apt-config", "apt-mark" };
+        for (String name : aptOtherBinaries) {
+            createSingleElfWrapper(binDir, libDir, name,
+                    "export TMPDIR=\"" + prefix + "/tmp\"\n" +
+                            "export APT_CONFIG=\"" + aptConfPath + "\"\n" +
                             "exec \"" + binDir + "/" + name + ".bin\" \"$@\"\n");
         }
 

@@ -25,14 +25,16 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
 
     private static final String LOG_TAG = "TermuxShellEnvironment";
 
-    /** Environment variable for the termux {@link TermuxConstants#TERMUX_PREFIX_DIR_PATH}. */
+    /**
+     * Environment variable for the termux
+     * {@link TermuxConstants#TERMUX_PREFIX_DIR_PATH}.
+     */
     public static final String ENV_PREFIX = "PREFIX";
 
     public TermuxShellEnvironment() {
         super();
         shellCommandShellEnvironment = new TermuxShellCommandShellEnvironment();
     }
-
 
     /** Init {@link TermuxShellEnvironment} constants and caches. */
     public synchronized static void init(@NonNull Context currentPackageContext) {
@@ -41,19 +43,22 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
 
     /** Init {@link TermuxShellEnvironment} constants and caches. */
     public synchronized static void writeEnvironmentToFile(@NonNull Context currentPackageContext) {
-        HashMap<String, String> environmentMap = new TermuxShellEnvironment().getEnvironment(currentPackageContext, false);
+        HashMap<String, String> environmentMap = new TermuxShellEnvironment().getEnvironment(currentPackageContext,
+                false);
         String environmentString = ShellEnvironmentUtils.convertEnvironmentToDotEnvFile(environmentMap);
 
-        // Write environment string to temp file and then move to final location since otherwise
+        // Write environment string to temp file and then move to final location since
+        // otherwise
         // writing may happen while file is being sourced/read
         Error error = FileUtils.writeTextToFile("termux.env.tmp", TermuxConstants.TERMUX_ENV_TEMP_FILE_PATH,
-            Charset.defaultCharset(), environmentString, false);
+                Charset.defaultCharset(), environmentString, false);
         if (error != null) {
             Logger.logErrorExtended(LOG_TAG, error.toString());
             return;
         }
 
-        error = FileUtils.moveRegularFile("termux.env.tmp", TermuxConstants.TERMUX_ENV_TEMP_FILE_PATH, TermuxConstants.TERMUX_ENV_FILE_PATH, true);
+        error = FileUtils.moveRegularFile("termux.env.tmp", TermuxConstants.TERMUX_ENV_TEMP_FILE_PATH,
+                TermuxConstants.TERMUX_ENV_FILE_PATH, true);
         if (error != null) {
             Logger.logErrorExtended(LOG_TAG, error.toString());
         }
@@ -71,30 +76,39 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
         if (termuxAppEnvironment != null)
             environment.putAll(termuxAppEnvironment);
 
-        HashMap<String, String> termuxApiAppEnvironment = TermuxAPIShellEnvironment.getEnvironment(currentPackageContext);
+        HashMap<String, String> termuxApiAppEnvironment = TermuxAPIShellEnvironment
+                .getEnvironment(currentPackageContext);
         if (termuxApiAppEnvironment != null)
             environment.putAll(termuxApiAppEnvironment);
 
         environment.put(ENV_HOME, TermuxConstants.TERMUX_HOME_DIR_PATH);
         environment.put(ENV_PREFIX, TermuxConstants.TERMUX_PREFIX_DIR_PATH);
 
-        // If failsafe is not enabled, then we keep default PATH and TMPDIR so that system binaries can be used
+        // If failsafe is not enabled, then we keep default PATH and TMPDIR so that
+        // system binaries can be used
         if (!isFailSafe) {
             environment.put(ENV_TMPDIR, TermuxConstants.TERMUX_TMP_PREFIX_DIR_PATH);
+            // proot hardcodes original com.termux tmpdir AND loaders in its binary,
+            // override them explicitly
+            environment.put("PROOT_TMP_DIR", TermuxConstants.TERMUX_TMP_PREFIX_DIR_PATH);
+            environment.put("PROOT_LOADER", TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/libexec/proot/loader");
+            environment.put("PROOT_LOADER_32", TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/libexec/proot/loader32");
             if (TermuxBootstrap.isAppPackageVariantAPTAndroid5()) {
                 // Termux in android 5/6 era shipped busybox binaries in applets directory
-                environment.put(ENV_PATH, TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + ":" + TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/applets");
-                environment.put(ENV_LD_LIBRARY_PATH, TermuxConstants.TERMUX_LIB_PREFIX_DIR_PATH);
+                environment.put(ENV_PATH, TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + ":"
+                        + TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/applets");
             } else {
-                // Termux binaries on Android 7+ rely on DT_RUNPATH, so LD_LIBRARY_PATH should be unset by default
+                // Termux binaries on Android 7+ rely on DT_RUNPATH, but as a fork, DT_RUNPATH
+                // points
+                // to com.termux. We MUST set LD_LIBRARY_PATH so ELFs can find their libraries
+                // natively.
                 environment.put(ENV_PATH, TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH);
-                environment.remove(ENV_LD_LIBRARY_PATH);
             }
+            environment.put(ENV_LD_LIBRARY_PATH, TermuxConstants.TERMUX_LIB_PREFIX_DIR_PATH);
         }
 
         return environment;
     }
-
 
     @NonNull
     @Override
