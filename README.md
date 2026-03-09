@@ -6,20 +6,18 @@ Pepebot Android app - A standalone terminal app with integrated Pepebot server c
 
 ```
 pepebot-android/
-├── build.sh              # Build script (clones pepebot + builds binaries + APK)
+├── build.sh              # Build script (clones pepebot + builds binaries + debug APK)
+├── build-release.sh      # Build release APK for production
 ├── install.sh            # Install script for device
 ├── .gitignore            # Ignores pepebot/ directory and binaries
 ├── README.md             # This file
 ├── logo.png              # App icon source
 ├── pepebot/              # ⚠️ NOT tracked by git (auto-cloned by build.sh)
 │   └── cmd/pepebot/      # Pepebot Go source code
-└── termux-app/           # Modified Termux app (standalone)
-    ├── .gitignore        # Ignores pepebot binaries in assets
-    ├── app/
-    │   └── src/main/
-    │       ├── assets/   # Pepebot binaries (copied by build.sh)
-    │       └── java/     # Android source code
-    └── build.gradle
+└── app/                  # Android app source
+    └── src/main/
+        ├── assets/       # Pepebot binaries (copied by build.sh)
+        └── java/          # Android source code
 ```
 
 **Note**: The `pepebot/` directory is NOT included in this repository. It will be automatically cloned by `build.sh` from the separate pepebot repository.
@@ -52,39 +50,50 @@ Just run the build script - it will automatically clone pepebot and build everyt
 ```
 
 The build script is pre-configured with the correct pepebot repository:
-- `https://github.com/anak10thn/pepebot.git`
+- `https://github.com/pepebot-space/pepebot.git`
 
 This script will:
 1. **Clone** pepebot repository (if not exists) or **pull** latest changes
 2. **Build** pepebot binaries for all Android architectures (arm64, armv7, x86_64)
-3. **Copy** binaries to termux-app assets
+3. **Copy** binaries to app assets
 4. **Build** the Android APK
+
+### Release Build
+
+For production release APK:
+```bash
+./build-release.sh
+```
+
+APK output: `app/build/outputs/apk/release/`
 
 ### Manual Build
 
 ```bash
 # 1. Build pepebot binaries
 cd pepebot
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o pepebot-arm64 ./cmd/pepebot
-GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -o pepebot-armv7 ./cmd/pepebot
+GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -o pepebot-arm64 ./cmd/pepebot
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o pepebot-x86_64 ./cmd/pepebot
 
 # 2. Copy to assets
-cp pepebot-* ../termux-app/app/src/main/assets/
+mkdir -p ../app/src/main/assets/
+cp pepebot-* ../app/src/main/assets/
 
 # 3. Build Android app
-cd ../termux-app
-./gradlew assembleDebug
+cd ..
+./gradlew assembleDebug   # Debug build
+# or
+./gradlew assembleRelease # Release build
 ```
 
 ## Installation
 
 ```bash
-# Install universal APK (works on all architectures)
-adb install -r termux-app/app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk
+# Install debug APK (all architectures)
+adb install -r app/build/outputs/apk/debug/pepebot_debug_universal.apk
 
-# Or install architecture-specific APK for smaller size
-adb install -r termux-app/app/build/outputs/apk/debug/termux-app_apt-android-7-debug_arm64-v8a.apk
+# Install release APK
+adb install -r app/build/outputs/apk/release/pepebot_release_universal.apk
 ```
 
 ## Usage
@@ -114,11 +123,13 @@ The app uses the Termux architecture with custom modifications:
 ## Repository Setup
 
 This repository does NOT include the pepebot Go server source code. The build script will automatically clone it from:
-- **https://github.com/anak10thn/pepebot**
+- **https://github.com/pepebot-space/pepebot**
 
 Simply run:
 ```bash
-./build.sh
+./build.sh        # Debug build
+# or
+./build-release.sh # Release build
 ```
 
 The script will:
@@ -128,15 +139,30 @@ The script will:
 
 The `pepebot/` directory is ignored by git and maintained separately.
 
+## Automated Release (GitHub Actions)
+
+Release builds are automated via GitHub Actions. To create a release:
+
+1. Create and push a tag:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+2. The workflow will automatically:
+   - Build the release APK
+   - Upload it to the GitHub Release
+
+APK can be downloaded from the Release page on GitHub.
+
 ## Development
 
 ### Key Files Modified
 
-- `termux-shared/src/main/java/com/termux/shared/termux/TermuxConstants.java` - Package name & app name
-- `app/build.gradle` - Namespace configuration
-- `app/src/main/res/layout/activity_termux.xml` - UI layout with control buttons
 - `app/src/main/java/com/termux/app/TermuxActivity.java` - Button handlers & command injection
 - `app/src/main/java/com/termux/app/PepebotInstaller.java` - Binary installation logic
+- `app/src/main/res/layout/activity_termux.xml` - UI layout with control buttons
+- `app/build.gradle` - Namespace configuration
 
 ### Updating Pepebot
 
