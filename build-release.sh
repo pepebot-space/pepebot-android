@@ -86,6 +86,9 @@ cd "$SCRIPT_DIR"
 echo "  Cleaning previous build..."
 ./gradlew clean > /dev/null 2>&1
 
+echo "  Fetching Termux bootstrap packages..."
+./gradlew :termux-app:termux-core:downloadBootstraps
+
 echo "  Building release APK..."
 ./gradlew :app:assembleRelease
 
