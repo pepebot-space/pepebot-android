@@ -22,3 +22,10 @@ termux-app/app/src/main/assets/pepebot-*
 # OS
 .DS_Store
 Thumbs.db
+
+# Build outputs
+build/
+app/build/
+.gradle/
+*.apk
+local.properties

@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "ERROR: armv7 not supported. Please use arm64 device."
+exit 1
