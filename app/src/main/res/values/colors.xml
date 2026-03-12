@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Dark Surface UI Backgrounds -->
     <color name="pepebot_splash_bg">#121212</color>
-    <color name="pepebot_text">#4CAF50</color>
+    <color name="pepebot_surface">#1E1E1E</color>
     <color name="ic_launcher_background">#121212</color>
+
+    <!-- Branding Colors -->
+    <color name="pepebot_primary">#D94B2B</color> <!-- Crab Shell Orange/Red -->
+    <color name="pepebot_primary_dark">#B73F24</color>
+    <color name="pepebot_secondary">#588939</color> <!-- Frog Green -->
+    <color name="pepebot_secondary_dark">#476D2E</color>
+    <color name="pepebot_text">#4CAF50</color> <!-- Generic Bright Green -->
+    <color name="pepebot_on_surface">#FFFFFF</color>
+    <color name="pepebot_outline">#444444</color>
 </resources>
