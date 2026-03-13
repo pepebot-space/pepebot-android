@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  repository_dispatch:
+    types: [pepebot-release]
 
 permissions:
   contents: write
@@ -16,10 +18,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            VERSION="${{ github.event.client_payload.version }}"
+            echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+            echo "VERSION_NO_V=${VERSION#v}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "VERSION_NO_V=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.24'
       
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -40,24 +54,50 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
       
+      - name: Download pepebot binary
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          # Download pepebot Android ARM64 binary from pepebot repo release
+          BINARY_URL="https://github.com/pepebot-space/pepebot/releases/download/${VERSION}/pepebot-android-arm64.tar.gz"
+          echo "Downloading: ${BINARY_URL}"
+          
+          curl -sL "${BINARY_URL}" -o pepebot-android-arm64.tar.gz
+          tar xzf pepebot-android-arm64.tar.gz
+          
+          # Update app assets
+          mkdir -p app/src/main/assets
+          cp pepebot-android-arm64 app/src/main/assets/pepebot-arm64 || true
+          
+          # Try other architectures if needed
+          for arch in armv7 x86_64; do
+            BINARY_URL="https://github.com/pepebot-space/pepebot/releases/download/${VERSION}/pepebot-android-${arch}.tar.gz"
+            if curl -fsSL "${BINARY_URL}" -o "pepebot-android-${arch}.tar.gz" 2>/dev/null; then
+              tar xzf "pepebot-android-${arch}.tar.gz"
+              cp "pepebot-android-${arch}" "app/src/main/assets/pepebot-${arch}" || true
+            fi
+          done
+          
+          ls -la app/src/main/assets/ || true
+      
       - name: Build Release APK
         run: ./build-release.sh
-      
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
       
       - name: Upload Release APK
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Pepebot Android ${{ steps.version.outputs.VERSION }}
           files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Update latest release
-        if: github.ref == 'refs/heads/main'
+      - name: Create tag if triggered by dispatch
+        if: github.event_name == 'repository_dispatch'
         run: |
-          echo "Release completed for ${{ github.ref_name }}"
-          echo "APKs available at: app/build/outputs/apk/release/"
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${VERSION}" -m "Release ${VERSION}"
+          git push origin "${VERSION}" 2>/dev/null || echo "Tag already exists"
