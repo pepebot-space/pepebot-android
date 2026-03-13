@@ -405,10 +405,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setIntent(intent);
         if (intent != null && intent.hasExtra("RUN_COMMAND")) {
             String command = intent.getStringExtra("RUN_COMMAND");
-            TerminalSession session = getCurrentSession();
-            if (session != null && command != null) {
-                byte[] bytes = (command + "\n").getBytes();
-                session.write(bytes, 0, bytes.length);
+            if (command != null) {
+                // Post command execution heavily delayed to wait for Views/Sessions to settle on warm boots.
+                if (mTerminalView != null) {
+                    mTerminalView.postDelayed(() -> {
+                        if ("CTRL_C".equals(command)) {
+                            injectCommandToTerminal("CTRL_C");
+                        } else {
+                            injectCommandToTerminal(command + "\n");
+                        }
+                    }, 500); // 500ms should be enough for singleTop re-focuses.
+                }
             }
         }
     }
@@ -463,7 +470,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                             if (intent != null && intent.hasExtra("RUN_COMMAND")) {
                                 String paramCmd = intent.getStringExtra("RUN_COMMAND");
                                 if (paramCmd != null) {
-                                    injectCommandToTerminal(paramCmd + "\n");
+                                    if ("CTRL_C".equals(paramCmd)) {
+                                        injectCommandToTerminal("CTRL_C");
+                                    } else {
+                                        injectCommandToTerminal(paramCmd + "\n");
+                                    }
                                 }
                             }
                         }, 2500);
@@ -488,6 +499,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             } else {
                 mTermuxTerminalSessionActivityClient
                         .setCurrentSession(mTermuxTerminalSessionActivityClient.getCurrentStoredSessionOrLast());
+            }
+
+            if (intent != null && intent.hasExtra("RUN_COMMAND")) {
+                String paramCmd = intent.getStringExtra("RUN_COMMAND");
+                if (paramCmd != null) {
+                    if (mTerminalView != null) {
+                        mTerminalView.postDelayed(() -> {
+                            if ("CTRL_C".equals(paramCmd)) {
+                                injectCommandToTerminal("CTRL_C");
+                            } else {
+                                injectCommandToTerminal(paramCmd + "\n");
+                            }
+                        }, 500);
+                    }
+                }
             }
         }
 
@@ -721,13 +747,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mLastToast.show();
     }
 
-    /**
-     * Inject a command string into the current terminal session.
-     */
     private void injectCommandToTerminal(String command) {
         TerminalSession currentSession = getCurrentSession();
         if (currentSession == null || !currentSession.isRunning()) {
             showToast("No active terminal session", true);
+            return;
+        }
+
+        if ("CTRL_C".equals(command)) {
+            currentSession.write(new byte[] { 3 }, 0, 1);
+            Logger.logDebug(LOG_TAG, "Injected command: CTRL_C");
             return;
         }
 

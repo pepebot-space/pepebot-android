@@ -11,6 +11,7 @@
     <color name="pepebot_secondary">#588939</color> <!-- Frog Green -->
     <color name="pepebot_secondary_dark">#476D2E</color>
     <color name="pepebot_text">#4CAF50</color> <!-- Generic Bright Green -->
+    <color name="pepebot_text_secondary">#A0A0A0</color>
     <color name="pepebot_on_surface">#FFFFFF</color>
     <color name="pepebot_outline">#444444</color>
 </resources>
