@@ -725,6 +725,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
             getDrawer().closeDrawers();
         } else {
+            Intent intent = new Intent();
+            intent.setClassName(this, "com.terminal.pepebot.HomeActivity");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
             finishActivityIfNotFinishing();
         }
     }
@@ -742,7 +746,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         if (mLastToast != null)
             mLastToast.cancel();
-        mLastToast = Toast.makeText(TermuxActivity.this, text, longDuration ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
+        
+        Toast toast = new Toast(this);
+        android.widget.TextView tv = new android.widget.TextView(this);
+        tv.setText(text);
+        tv.setTextColor(0xFF000000); // Black
+        tv.setBackgroundColor(0xFFE0E0E0); // Light Gray
+        tv.setPadding(40, 20, 40, 20);
+        tv.setTextSize(14f);
+        toast.setView(tv);
+        
+        mLastToast = toast;
+        mLastToast.setDuration(longDuration ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
         mLastToast.setGravity(Gravity.TOP, 0, 0);
         mLastToast.show();
     }
