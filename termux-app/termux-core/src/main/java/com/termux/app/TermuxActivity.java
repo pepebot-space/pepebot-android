@@ -399,6 +399,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         savedInstanceState.putBoolean(ARG_ACTIVITY_RECREATED, true);
     }
 
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.hasExtra("RUN_COMMAND")) {
+            String command = intent.getStringExtra("RUN_COMMAND");
+            TerminalSession session = getCurrentSession();
+            if (session != null && command != null) {
+                byte[] bytes = (command + "\n").getBytes();
+                session.write(bytes, 0, bytes.length);
+            }
+        }
+    }
+
     /**
      * Part of the {@link ServiceConnection} interface. The service is bound with
      * {@link #bindService(Intent, ServiceConnection, int)} in
@@ -445,6 +459,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                             injectCommandToTerminal("echo 'Tap Configure to set up your API keys'\n");
                             injectCommandToTerminal("echo 'Tap Start Server to launch the gateway'\n");
                             injectCommandToTerminal("echo ''\n");
+                            
+                            if (intent != null && intent.hasExtra("RUN_COMMAND")) {
+                                String paramCmd = intent.getStringExtra("RUN_COMMAND");
+                                if (paramCmd != null) {
+                                    injectCommandToTerminal(paramCmd + "\n");
+                                }
+                            }
                         }, 2500);
                     } catch (WindowManager.BadTokenException e) {
                         // Activity finished - ignore.
