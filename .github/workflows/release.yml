@@ -54,31 +54,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
       
-      - name: Download pepebot binary
-        env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
-        run: |
-          # Download pepebot Android ARM64 binary from pepebot repo release
-          BINARY_URL="https://github.com/pepebot-space/pepebot/releases/download/${VERSION}/pepebot-android-arm64.tar.gz"
-          echo "Downloading: ${BINARY_URL}"
-          
-          curl -sL "${BINARY_URL}" -o pepebot-android-arm64.tar.gz
-          tar xzf pepebot-android-arm64.tar.gz
-          
-          # Update app assets
-          mkdir -p app/src/main/assets
-          cp pepebot-android-arm64 app/src/main/assets/pepebot-arm64 || true
-          
-          # Try other architectures if needed
-          for arch in armv7 x86_64; do
-            BINARY_URL="https://github.com/pepebot-space/pepebot/releases/download/${VERSION}/pepebot-android-${arch}.tar.gz"
-            if curl -fsSL "${BINARY_URL}" -o "pepebot-android-${arch}.tar.gz" 2>/dev/null; then
-              tar xzf "pepebot-android-${arch}.tar.gz"
-              cp "pepebot-android-${arch}" "app/src/main/assets/pepebot-${arch}" || true
-            fi
-          done
-          
-          ls -la app/src/main/assets/ || true
+      
       
       - name: Build Release APK
         run: ./build-release.sh
