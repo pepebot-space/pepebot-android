@@ -56,6 +56,9 @@ jobs:
       
       
       
+      - name: Decode keystore and create jks file
+        run: echo "${{ secrets.KEYSTORE_JKS_BASE64 }}" | base64 --decode > pepebot-release.jks
+      
       - name: Build Release APK
         run: ./build-release.sh
       
