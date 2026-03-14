@@ -60,7 +60,14 @@ This script will:
 
 ### Configuring Release Keys
 
-Before generating a release APK/AAB, you must configure the signing keys. Create a `.env` file in the root project directory:
+Before generating a release APK/AAB, you must generate and configure the signing keys. 
+
+To generate a new `.jks` release keystore, run the following command in the root project directory:
+```bash
+keytool -genkey -v -keystore pepebot-release.jks -alias pepebot -keyalg RSA -keysize 2048 -validity 10000 -storepass "your_password" -keypass "your_password"
+```
+
+Then, create a `.env` file in the root project directory to map these credentials:
 
 ```env
 KEYSTORE_FILE=pepebot-release.jks
