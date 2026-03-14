@@ -58,11 +58,38 @@ This script will:
 3. **Copy** binaries to app assets
 4. **Build** the Android APK
 
+### Configuring Release Keys
+
+Before generating a release APK/AAB, you must generate and configure the signing keys. 
+
+To generate a new `.jks` release keystore, run the following command in the root project directory:
+```bash
+keytool -genkey -v -keystore pepebot-release.jks -alias pepebot -keyalg RSA -keysize 2048 -validity 10000 -storepass "your_password" -keypass "your_password"
+```
+
+Then, create a `.env` file in the root project directory to map these credentials:
+
+```env
+KEYSTORE_FILE=pepebot-release.jks
+KEYSTORE_PASSWORD=your_keystore_password
+KEY_ALIAS=your_key_alias
+KEY_PASSWORD=your_key_password
+```
+
+Ensure your `pepebot-release.jks` keystore file is placed in the root directory alongside the `.env` file. Both `.env` and `*.jks` are ignored by git to prevent accidental secret leaks.
+
+If `.env` is absent, the build script will fallback to the `pepebot-debug.jks` testing signature.
+
 ### Release Build
 
 For production release APK:
 ```bash
 ./build-release.sh
+```
+
+To build an Android App Bundle (.aab) instead:
+```bash
+./build-release.sh --aab
 ```
 
 APK output: `app/build/outputs/apk/release/`
