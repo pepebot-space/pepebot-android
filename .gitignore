@@ -29,3 +29,8 @@ app/build/
 .gradle/
 *.apk
 local.properties
+
+# Keys
+*.jks
+!pepebot-debug.jks
+.env

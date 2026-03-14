@@ -43,15 +43,33 @@ android {
 
     signingConfigs {
         debug {
-            storeFile file('../termux-app/termux-core/testkey_untrusted.jks')
+            storeFile rootProject.file('pepebot-debug.jks')
             keyAlias 'alias'
             storePassword 'xrj45yWGLbsO7W0v'
             keyPassword 'xrj45yWGLbsO7W0v'
+        }
+        release {
+            def envFile = rootProject.file(".env")
+            if (envFile.exists()) {
+                def env = new Properties()
+                env.load(new FileInputStream(envFile))
+                storeFile = rootProject.file(env['KEYSTORE_FILE'])
+                storePassword = env['KEYSTORE_PASSWORD']
+                keyAlias = env['KEY_ALIAS']
+                keyPassword = env['KEY_PASSWORD']
+            } else {
+                println "WARNING: .env not found! Using debug signature for release build."
+                storeFile rootProject.file('pepebot-debug.jks')
+                keyAlias 'alias'
+                storePassword 'xrj45yWGLbsO7W0v'
+                keyPassword 'xrj45yWGLbsO7W0v'
+            }
         }
     }
 
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
