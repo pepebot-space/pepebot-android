@@ -7,19 +7,17 @@
         android:name="com.termux.app.TermuxApplication"
         android:allowBackup="false"
         android:banner="@drawable/banner"
-        android:extractNativeLibs="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/application_name"
         android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="false"
         android:theme="@style/Theme.TermuxApp.DayNight.DarkActionBar"
-        tools:targetApi="m"
-        tools:replace="android:icon,android:roundIcon,android:theme,android:label">
+        tools:targetApi="m">
 
         <!-- Override TermuxActivity to be the launcher -->
         <activity
-            android:name=".HomeActivity"
+            android:name="com.terminal.pepebot.HomeActivity"
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:exported="false"
             android:screenOrientation="portrait" />
