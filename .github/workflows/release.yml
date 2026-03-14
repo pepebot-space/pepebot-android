@@ -13,6 +13,7 @@ permissions:
 jobs:
   build-release:
     runs-on: ubuntu-latest
+    environment: BUILDPROD
     
     steps:
       - name: Checkout code
@@ -57,10 +58,10 @@ jobs:
       
       - name: Decode keystore and create jks file
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > pepebot-release.jks
+          if [ -n "${{ secrets.KEYSTORE_JKS_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_JKS_BASE64 }}" | base64 --decode > pepebot-release.jks
           else
-            echo "Warning: KEYSTORE_BASE64 secret not found."
+            echo "Warning: KEYSTORE_JKS_BASE64 secret not found."
           fi
       
       - name: Build Release APK
