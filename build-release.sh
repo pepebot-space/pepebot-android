@@ -2,8 +2,19 @@
 
 set -e
 
+BUILD_AAB=false
+for arg in "$@"; do
+    if [ "$arg" == "--aab" ] || [ "$arg" == "-a" ]; then
+        BUILD_AAB=true
+    fi
+done
+
 echo "🐸 Pepebot Android Release Builder"
-echo "===================================="
+if [ "$BUILD_AAB" = true ]; then
+    echo "🎯 Mode: App Bundle (.aab)"
+else
+    echo "🎯 Mode: APK (.apk)"
+fi
 echo ""
 
 RED='\033[0;31m'
@@ -89,28 +100,45 @@ echo "  Cleaning previous build..."
 echo "  Fetching Termux bootstrap packages..."
 ./gradlew :termux-app:termux-core:downloadBootstraps
 
-echo "  Building release APK..."
-./gradlew :app:assembleRelease
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Android Release APK built successfully${NC}"
-    echo ""
-
-    echo "📱 Generated APKs:"
-    find app/build/outputs/apk/release -name "*.apk" -type f | while read apk; do
-        size=$(ls -lh "$apk" | awk '{print $5}')
-        name=$(basename "$apk")
-        echo "  • $name ($size)"
-    done
-    echo ""
-
-    echo -e "${GREEN}🎉 Release build completed successfully!${NC}"
-    echo ""
-    echo "📍 APKs location: $SCRIPT_DIR/app/build/outputs/apk/release/"
-    echo ""
-    echo "To install on device:"
-    echo "  adb install -r app/build/outputs/apk/release/*.apk"
+if [ "$BUILD_AAB" = true ]; then
+    echo "  Building release AAB..."
+    if ./gradlew :app:bundleRelease; then
+        echo -e "${GREEN}✓ Android Release AAB built successfully${NC}"
+        echo ""
+        echo "📱 Generated AABs:"
+        find app/build/outputs/bundle/release -name "*.aab" -type f | while read aab; do
+            size=$(ls -lh "$aab" | awk '{print $5}')
+            name=$(basename "$aab")
+            echo "  • $name ($size)"
+        done
+        echo ""
+        echo -e "${GREEN}🎉 Release build completed successfully!${NC}"
+        echo ""
+        echo "📍 AABs location: $SCRIPT_DIR/app/build/outputs/bundle/release/"
+    else
+        echo -e "${RED}❌ Build failed${NC}"
+        exit 1
+    fi
 else
-    echo -e "${RED}❌ Build failed${NC}"
-    exit 1
+    echo "  Building release APK..."
+    if ./gradlew :app:assembleRelease; then
+        echo -e "${GREEN}✓ Android Release APK built successfully${NC}"
+        echo ""
+        echo "📱 Generated APKs:"
+        find app/build/outputs/apk/release -name "*.apk" -type f | while read apk; do
+            size=$(ls -lh "$apk" | awk '{print $5}')
+            name=$(basename "$apk")
+            echo "  • $name ($size)"
+        done
+        echo ""
+        echo -e "${GREEN}🎉 Release build completed successfully!${NC}"
+        echo ""
+        echo "📍 APKs location: $SCRIPT_DIR/app/build/outputs/apk/release/"
+        echo ""
+        echo "To install on device:"
+        echo "  adb install -r app/build/outputs/apk/release/*.apk"
+    else
+        echo -e "${RED}❌ Build failed${NC}"
+        exit 1
+    fi
 fi

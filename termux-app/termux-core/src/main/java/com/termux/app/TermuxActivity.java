@@ -399,6 +399,27 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         savedInstanceState.putBoolean(ARG_ACTIVITY_RECREATED, true);
     }
 
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.hasExtra("RUN_COMMAND")) {
+            String command = intent.getStringExtra("RUN_COMMAND");
+            if (command != null) {
+                // Post command execution heavily delayed to wait for Views/Sessions to settle on warm boots.
+                if (mTerminalView != null) {
+                    mTerminalView.postDelayed(() -> {
+                        if ("CTRL_C".equals(command)) {
+                            injectCommandToTerminal("CTRL_C");
+                        } else {
+                            injectCommandToTerminal(command + "\n");
+                        }
+                    }, 500); // 500ms should be enough for singleTop re-focuses.
+                }
+            }
+        }
+    }
+
     /**
      * Part of the {@link ServiceConnection} interface. The service is bound with
      * {@link #bindService(Intent, ServiceConnection, int)} in
@@ -445,6 +466,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                             injectCommandToTerminal("echo 'Tap Configure to set up your API keys'\n");
                             injectCommandToTerminal("echo 'Tap Start Server to launch the gateway'\n");
                             injectCommandToTerminal("echo ''\n");
+                            
+                            if (intent != null && intent.hasExtra("RUN_COMMAND")) {
+                                String paramCmd = intent.getStringExtra("RUN_COMMAND");
+                                if (paramCmd != null) {
+                                    if ("CTRL_C".equals(paramCmd)) {
+                                        injectCommandToTerminal("CTRL_C");
+                                    } else {
+                                        injectCommandToTerminal(paramCmd + "\n");
+                                    }
+                                }
+                            }
                         }, 2500);
                     } catch (WindowManager.BadTokenException e) {
                         // Activity finished - ignore.
@@ -467,6 +499,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             } else {
                 mTermuxTerminalSessionActivityClient
                         .setCurrentSession(mTermuxTerminalSessionActivityClient.getCurrentStoredSessionOrLast());
+            }
+
+            if (intent != null && intent.hasExtra("RUN_COMMAND")) {
+                String paramCmd = intent.getStringExtra("RUN_COMMAND");
+                if (paramCmd != null) {
+                    if (mTerminalView != null) {
+                        mTerminalView.postDelayed(() -> {
+                            if ("CTRL_C".equals(paramCmd)) {
+                                injectCommandToTerminal("CTRL_C");
+                            } else {
+                                injectCommandToTerminal(paramCmd + "\n");
+                            }
+                        }, 500);
+                    }
+                }
             }
         }
 
@@ -678,6 +725,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
             getDrawer().closeDrawers();
         } else {
+            Intent intent = new Intent();
+            intent.setClassName(this, "com.terminal.pepebot.HomeActivity");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
             finishActivityIfNotFinishing();
         }
     }
@@ -695,18 +746,32 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         if (mLastToast != null)
             mLastToast.cancel();
-        mLastToast = Toast.makeText(TermuxActivity.this, text, longDuration ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
+        
+        Toast toast = new Toast(this);
+        android.widget.TextView tv = new android.widget.TextView(this);
+        tv.setText(text);
+        tv.setTextColor(0xFF000000); // Black
+        tv.setBackgroundColor(0xFFE0E0E0); // Light Gray
+        tv.setPadding(40, 20, 40, 20);
+        tv.setTextSize(14f);
+        toast.setView(tv);
+        
+        mLastToast = toast;
+        mLastToast.setDuration(longDuration ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
         mLastToast.setGravity(Gravity.TOP, 0, 0);
         mLastToast.show();
     }
 
-    /**
-     * Inject a command string into the current terminal session.
-     */
     private void injectCommandToTerminal(String command) {
         TerminalSession currentSession = getCurrentSession();
         if (currentSession == null || !currentSession.isRunning()) {
             showToast("No active terminal session", true);
+            return;
+        }
+
+        if ("CTRL_C".equals(command)) {
+            currentSession.write(new byte[] { 3 }, 0, 1);
+            Logger.logDebug(LOG_TAG, "Injected command: CTRL_C");
             return;
         }
 

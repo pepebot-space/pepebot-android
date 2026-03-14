@@ -101,42 +101,51 @@
             android:layout_height="wrap_content"
             android:layout_above="@+id/terminal_toolbar_view_pager"
             android:orientation="horizontal"
-            android:background="#2C2C2C"
-            android:padding="8dp"
-            android:gravity="center">
+            android:background="@color/pepebot_surface"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:gravity="center"
+            android:elevation="4dp">
 
-            <com.google.android.material.button.MaterialButton
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/pepebot_configure_button"
-                style="?android:attr/buttonBarButtonStyle"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_weight="1"
                 android:text="⚙️ Configure"
+                android:textAllCaps="false"
+                android:textColor="@color/pepebot_on_surface"
                 android:textSize="14sp"
-                android:layout_marginEnd="4dp" />
+                android:textStyle="bold"
+                android:background="@drawable/bg_btn_configure"
+                android:layout_marginEnd="6dp" />
 
-            <com.google.android.material.button.MaterialButton
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/pepebot_start_button"
-                style="?android:attr/buttonBarButtonStyle"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_weight="1"
                 android:text="▶️ Start"
+                android:textAllCaps="false"
+                android:textColor="@color/pepebot_on_surface"
                 android:textSize="14sp"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:backgroundTint="#4CAF50" />
+                android:textStyle="bold"
+                android:background="@drawable/bg_btn_start"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp" />
 
-            <com.google.android.material.button.MaterialButton
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/pepebot_stop_button"
-                style="?android:attr/buttonBarButtonStyle"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_weight="1"
                 android:text="⏹️ Stop"
+                android:textAllCaps="false"
+                android:textColor="@color/pepebot_on_surface"
                 android:textSize="14sp"
-                android:layout_marginStart="4dp"
-                android:backgroundTint="#F44336" />
+                android:textStyle="bold"
+                android:background="@drawable/bg_btn_stop"
+                android:layout_marginStart="6dp" />
         </LinearLayout>
 
         <androidx.viewpager.widget.ViewPager

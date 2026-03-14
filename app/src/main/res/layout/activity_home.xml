@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/pepebot_splash_bg"
+    android:padding="24dp">
+
+    <ImageView
+        android:id="@+id/iv_home_logo"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:src="@drawable/pepebot_logo"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tv_home_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PEPEBOT"
+        android:textColor="@color/pepebot_text"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.1"
+        android:layout_marginTop="2dp"
+        app:layout_constraintTop_toBottomOf="@id/iv_home_logo"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="2"
+        android:rowCount="3"
+        android:layout_marginTop="36dp"
+        app:layout_constraintTop_toBottomOf="@id/tv_home_title"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Card 3: Start/Stop Server -->
+        <LinearLayout
+            android:id="@+id/card_server"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_card_surface"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/iv_server_icon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_play"
+                app:tint="@color/pepebot_secondary"/>
+            <TextView
+                android:id="@+id/tv_server_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Start Server"
+                android:textColor="@color/pepebot_on_surface"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+        <!-- Card 1: Dashboard -->
+        <LinearLayout
+            android:id="@+id/card_dashboard"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_card_surface"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_dashboard"
+                app:tint="@color/pepebot_primary"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dashboard"
+                android:textColor="@color/pepebot_on_surface"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+        <!-- Card 2: Configuration -->
+        <LinearLayout
+            android:id="@+id/card_config"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_card_surface"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_config"
+                app:tint="@color/pepebot_primary"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Settings"
+                android:textColor="@color/pepebot_on_surface"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+        
+
+        <!-- Card 4: Terminal -->
+        <LinearLayout
+            android:id="@+id/card_terminal"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_card_surface"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_terminal"
+                app:tint="@color/pepebot_primary"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Terminal"
+                android:textColor="@color/pepebot_on_surface"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+        <!-- Card 5: Update -->
+        <LinearLayout
+            android:id="@+id/card_update"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_card_surface"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_update"
+                app:tint="@color/pepebot_primary"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Update"
+                android:textColor="@color/pepebot_on_surface"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+        <!-- Card 6: About -->
+        <LinearLayout
+            android:id="@+id/card_about"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_card_surface"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_about"
+                app:tint="@color/pepebot_secondary"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="About"
+                android:textColor="@color/pepebot_on_surface"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+    </GridLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
