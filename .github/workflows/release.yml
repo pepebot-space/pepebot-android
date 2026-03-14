@@ -73,7 +73,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         
       - name: Build Release AAB
-        run: ./build-release.sh --aab
+        run: ./build-release.sh --aab --skip-clean
         env:
           KEYSTORE_FILE: pepebot-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}

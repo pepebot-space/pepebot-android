@@ -3,9 +3,13 @@
 set -e
 
 BUILD_AAB=false
+SKIP_CLEAN=false
 for arg in "$@"; do
     if [ "$arg" == "--aab" ] || [ "$arg" == "-a" ]; then
         BUILD_AAB=true
+    fi
+    if [ "$arg" == "--skip-clean" ]; then
+        SKIP_CLEAN=true
     fi
 done
 
@@ -94,8 +98,12 @@ echo ""
 echo "🏗️  Step 3: Building Android Release APK..."
 cd "$SCRIPT_DIR"
 
-echo "  Cleaning previous build..."
-./gradlew clean > /dev/null 2>&1
+if [ "$SKIP_CLEAN" = false ]; then
+    echo "  Cleaning previous build..."
+    ./gradlew clean > /dev/null 2>&1
+else
+    echo "  Skipping clean step..."
+fi
 
 echo "  Fetching Termux bootstrap packages..."
 ./gradlew :termux-app:termux-core:downloadBootstraps
