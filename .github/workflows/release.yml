@@ -55,32 +55,29 @@ jobs:
             ${{ runner.os }}-gradle-
       
       
-      - name: Configure Keystore from Secrets
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          # Only create configuration if secrets exist to avoid failing on forks/PRs
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > pepebot-testkey.jks
-            echo "KEYSTORE_FILE=pepebot-testkey.jks" > .env
-            echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> .env
-            echo "KEY_ALIAS=$KEY_ALIAS" >> .env
-            echo "KEY_PASSWORD=$KEY_PASSWORD" >> .env
-          else
-            echo "No keystore secrets found, falling back to debug signatures"
-          fi
-      
       - name: Decode keystore and create jks file
-        run: echo "${{ secrets.KEYSTORE_JKS_BASE64 }}" | base64 --decode > pepebot-release.jks
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > pepebot-release.jks
+          else
+            echo "Warning: KEYSTORE_BASE64 secret not found."
+          fi
       
       - name: Build Release APK
         run: ./build-release.sh
+        env:
+          KEYSTORE_FILE: pepebot-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         
       - name: Build Release AAB
         run: ./build-release.sh --aab
+        env:
+          KEYSTORE_FILE: pepebot-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       
       - name: Upload Release Artifacts
         uses: softprops/action-gh-release@v1

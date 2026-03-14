@@ -49,8 +49,17 @@ android {
             keyPassword 'xrj45yWGLbsO7W0v'
         }
         release {
+            def sysKeystoreFile = System.getenv("KEYSTORE_FILE")
             def envFile = rootProject.file(".env")
-            if (envFile.exists()) {
+            
+            if (sysKeystoreFile != null) {
+                println "INFO: Using signing properties from System Environment Variables (CI)"
+                storeFile = rootProject.file(sysKeystoreFile)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            } else if (envFile.exists()) {
+                println "INFO: Using signing properties from .env file (Local)"
                 def env = new Properties()
                 env.load(new FileInputStream(envFile))
                 storeFile = rootProject.file(env['KEYSTORE_FILE'])
@@ -58,7 +67,7 @@ android {
                 keyAlias = env['KEY_ALIAS']
                 keyPassword = env['KEY_PASSWORD']
             } else {
-                println "WARNING: .env not found! Using debug signature for release build."
+                println "WARNING: System env and .env not found! Using debug signature for release build."
                 storeFile rootProject.file('pepebot-debug.jks')
                 keyAlias 'alias'
                 storePassword 'xrj45yWGLbsO7W0v'
