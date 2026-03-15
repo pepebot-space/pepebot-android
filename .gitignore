@@ -1,8 +1,8 @@
 # Pepebot Android Project
 
 # Pepebot Go binaries (will be built by build script)
-pepebot/
-pepebot/pepebot-*
+/pepebot/
+/pepebot/pepebot-*
 
 # Android build outputs
 termux-app/build/
